@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Typing Tutor (မြန်မာ)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Padauk:wght@400;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Padauk', sans-serif;
+            -webkit-user-select: none; /* Safari */
+            -ms-user-select: none; /* IE 10 and IE 11 */
+            user-select: none; /* Standard syntax */
+        }
+        .font-roboto-mono {
+            font-family: 'Roboto Mono', monospace;
+        }
+        .key {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            border: 1px solid #cbd5e1; /* slate-300 */
+            background-color: #f1f5f9; /* slate-100 */
+            border-radius: 0.375rem; /* rounded-md */
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 500;
+            box-shadow: 0 2px 0 #a0aec0;
+            transition: all 0.07s ease-in-out;
+            min-height: 48px;
+            text-align: center;
+        }
+        .key-active {
+            transform: scale(1.1);
+            background-color: #3b82f6; /* bg-blue-500 */
+            color: white;
+            box-shadow: 0 0 20px #3b82f6;
+            border-color: #3b82f6;
+        }
+        .key-pressed {
+            transform: translateY(2px) scale(0.98);
+            box-shadow: none;
+            background-color: #64748b; /* slate-500 */
+            color: white;
+        }
+        .finger-active {
+            transform: scale(1.1);
+            background-color: #22c55e; /* bg-green-500 */
+            border-radius: 0.375rem;
+            color: white;
+        }
+        #text-display-container span.current {
+            background-color: #e0e0e0;
+            border-bottom: 2px solid #3b82f6;
+            padding: 0 1px;
+            border-radius: 2px;
+        }
+        #text-display-container span.correct {
+            color: #16a34a; /* text-green-600 */
+        }
+        #text-display-container span.incorrect {
+            color: #dc2626; /* text-red-600 */
+            background-color: #fee2e2; /* bg-red-100 */
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
+        <header class="text-center mb-6 flex flex-col items-center">
+            <img src="data_folder/logo.png" alt="The Global Network Logo" class="h-24 w-auto mb-4" onerror="this.style.display='none'">
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-600">ကွန်ပျူတာ လက်ကွက်လေ့ကျင့်ရန်</h1>
+        </header>
+
+        <!-- Settings and Stats -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 bg-slate-50 p-4 rounded-lg gap-4">
+            <div class="flex items-center gap-4">
+                <label for="lesson-select" class="font-bold">သင်ခန်းစာ:</label>
+                <select id="lesson-select" class="border rounded-md px-3 py-2 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </select>
+            </div>
+            <div id="stats" class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div class="bg-white p-3 rounded-lg shadow-sm">
+                    <div class="text-sm text-slate-500">WPM</div>
+                    <div id="wpm" class="text-2xl font-bold text-blue-600">0</div>
+                </div>
+                <div class="bg-white p-3 rounded-lg shadow-sm">
+                    <div class="text-sm text-slate-500">တိကျမှု</div>
+                    <div id="accuracy" class="text-2xl font-bold text-green-600">100%</div>
+                </div>
+                <div class="bg-white p-3 rounded-lg shadow-sm">
+                    <div class="text-sm text-slate-500">အမှား</div>
+                    <div id="errors" class="text-2xl font-bold text-red-600">0</div>
+                </div>
+                <div class="bg-white p-3 rounded-lg shadow-sm">
+                    <div class="text-sm text-slate-500">အချိန်</div>
+                    <div id="timer" class="text-2xl font-bold text-slate-700">0s</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Typing Area -->
+        <div id="typing-area" class="bg-slate-200 p-4 rounded-lg mb-6 text-2xl md:text-3xl leading-relaxed tracking-wider font-roboto-mono select-none">
+            <p id="lesson-instruction" class="font-padauk text-base text-slate-600 mb-4 text-center"></p>
+            <div id="text-display-container" class="break-words"></div>
+        </div>
+        
+        <div class="text-center mb-8">
+            <button id="reset-button" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-6 rounded-lg transition-transform transform hover:scale-105">
+                ပြန်လည်စတင်ပါ
+            </button>
+        </div>
+
+
+        <!-- Keyboard -->
+        <div id="keyboard" class="w-full max-w-5xl mx-auto p-2 sm:p-4 bg-gray-200 rounded-lg shadow-inner flex flex-col gap-1.5 font-sans">
+             <!-- Row 1 -->
+             <div class="flex w-full gap-1.5">
+                <div class="key flex-[1]" data-key="Backquote">~<br>`</div>
+                <div class="key flex-[1]" data-key="Digit1">!<br>1</div>
+                <div class="key flex-[1]" data-key="Digit2">@<br>2</div>
+                <div class="key flex-[1]" data-key="Digit3">#<br>3</div>
+                <div class="key flex-[1]" data-key="Digit4">$<br>4</div>
+                <div class="key flex-[1]" data-key="Digit5">%<br>5</div>
+                <div class="key flex-[1]" data-key="Digit6">^<br>6</div>
+                <div class="key flex-[1]" data-key="Digit7">&<br>7</div>
+                <div class="key flex-[1]" data-key="Digit8">*<br>8</div>
+                <div class="key flex-[1]" data-key="Digit9">(<br>9</div>
+                <div class="key flex-[1]" data-key="Digit0">)<br>0</div>
+                <div class="key flex-[1]" data-key="Minus">_<br>-</div>
+                <div class="key flex-[1]" data-key="Equal">+<br>=</div>
+                <div class="key flex-[2]" data-key="Backspace">Backspace</div>
+            </div>
+             <!-- Row 2 -->
+            <div class="flex w-full gap-1.5">
+                <div class="key flex-[1.5]" data-key="Tab">Tab</div>
+                <div class="key flex-[1]" data-key="KeyQ">Q</div>
+                <div class="key flex-[1]" data-key="KeyW">W</div>
+                <div class="key flex-[1]" data-key="KeyE">E</div>
+                <div class="key flex-[1]" data-key="KeyR">R</div>
+                <div class="key flex-[1]" data-key="KeyT">T</div>
+                <div class="key flex-[1]" data-key="KeyY">Y</div>
+                <div class="key flex-[1]" data-key="KeyU">U</div>
+                <div class="key flex-[1]" data-key="KeyI">I</div>
+                <div class="key flex-[1]" data-key="KeyO">O</div>
+                <div class="key flex-[1]" data-key="KeyP">P</div>
+                <div class="key flex-[1]" data-key="BracketLeft">{<br>[</div>
+                <div class="key flex-[1]" data-key="BracketRight">}<br>]</div>
+                <div class="key flex-[1.5]" data-key="Backslash">|<br>\</div>
+            </div>
+             <!-- Row 3 -->
+            <div class="flex w-full gap-1.5">
+                <div class="key flex-[1.75]" data-key="CapsLock">Caps Lock</div>
+                <div class="key flex-[1]" data-key="KeyA">A</div>
+                <div class="key flex-[1]" data-key="KeyS">S</div>
+                <div class="key flex-[1]" data-key="KeyD">D</div>
+                <div class="key flex-[1]" data-key="KeyF">F</div>
+                <div class="key flex-[1]" data-key="KeyG">G</div>
+                <div class="key flex-[1]" data-key="KeyH">H</div>
+                <div class="key flex-[1]" data-key="KeyJ">J</div>
+                <div class="key flex-[1]" data-key="KeyK">K</div>
+                <div class="key flex-[1]" data-key="KeyL">L</div>
+                <div class="key flex-[1]" data-key="Semicolon">:<br>;</div>
+                <div class="key flex-[1]" data-key="Quote">"<br>'</div>
+                <div class="key flex-[2.25]" data-key="Enter">Enter</div>
+            </div>
+             <!-- Row 4 -->
+            <div class="flex w-full gap-1.5">
+                <div class="key flex-[2.25]" data-key="ShiftLeft">Shift</div>
+                <div class="key flex-[1]" data-key="KeyZ">Z</div>
+                <div class="key flex-[1]" data-key="KeyX">X</div>
+                <div class="key flex-[1]" data-key="KeyC">C</div>
+                <div class="key flex-[1]" data-key="KeyV">V</div>
+                <div class="key flex-[1]" data-key="KeyB">B</div>
+                <div class="key flex-[1]" data-key="KeyN">N</div>
+                <div class="key flex-[1]" data-key="KeyM">M</div>
+                <div class="key flex-[1]" data-key="Comma"><<br>,</div>
+                <div class="key flex-[1]" data-key="Period">><br>.</div>
+                <div class="key flex-[1]" data-key="Slash">?<br>/</div>
+                <div class="key flex-[2.75]" data-key="ShiftRight">Shift</div>
+            </div>
+             <!-- Row 5 -->
+            <div class="flex w-full gap-1.5">
+                <div class="key flex-[1.5]" data-key="ControlLeft">Ctrl</div>
+                <div class="key flex-[1.25]" data-key="MetaLeft">Win</div>
+                <div class="key flex-[1.25]" data-key="AltLeft">Alt</div>
+                <div class="key flex-[6.5]" data-key="Space">Space</div>
+                <div class="key flex-[1.25]" data-key="AltRight">Alt</div>
+                <div class="key flex-[1.25]" data-key="ContextMenu">Menu</div>
+                <div class="key flex-[1.5]" data-key="ControlRight">Ctrl</div>
+            </div>
+        </div>
+
+        <!-- Finger Guide -->
+        <div id="finger-guide" class="flex justify-center mt-4 w-full max-w-4xl mx-auto gap-12 text-sm">
+             <div class="flex gap-2">
+                <div class="finger p-2" data-finger="left-pinky">ဘယ်လက်သန်း</div>
+                <div class="finger p-2" data-finger="left-ring">ဘယ်လက်သူကြွယ်</div>
+                <div class="finger p-2" data-finger="left-middle">ဘယ်လက်ခလယ်</div>
+                <div class="finger p-2" data-finger="left-index">ဘယ်လက်ညှိုး</div>
+                <div class="finger p-2" data-finger="left-thumb">ဘယ်လက်မ</div>
+            </div>
+            <div class="flex gap-2">
+                <div class="finger p-2" data-finger="right-thumb">ညာလက်မ</div>
+                <div class="finger p-2" data-finger="right-index">ညာလက်ညှိုး</div>
+                <div class="finger p-2" data-finger="right-middle">ညာလက်ခလယ်</div>
+                <div class="finger p-2" data-finger="right-ring">ညာလက်သူကြွယ်</div>
+                <div class="finger p-2" data-finger="right-pinky">ညာလက်သန်း</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal -->
+    <div id="result-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full text-center">
+            <h2 class="text-2xl font-bold mb-4">သင်ခန်းစာ ပြီးပါပြီ!</h2>
+            <div id="modal-stats" class="text-left space-y-2 mb-6"></div>
+            <button id="next-lesson-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg mr-2">နောက်သင်ခန်းစာ</button>
+            <button id="retry-lesson-button" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg">ပြန်ကျင့်မည်</button>
+        </div>
+    </div>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const lessonSelect = document.getElementById('lesson-select');
+        const wpmEl = document.getElementById('wpm');
+        const accuracyEl = document.getElementById('accuracy');
+        const errorsEl = document.getElementById('errors');
+        const timerEl = document.getElementById('timer');
+        const textDisplayContainer = document.getElementById('text-display-container');
+        const lessonInstructionEl = document.getElementById('lesson-instruction');
+        const resetButton = document.getElementById('reset-button');
+        const resultModal = document.getElementById('result-modal');
+        const modalStats = document.getElementById('modal-stats');
+        const nextLessonButton = document.getElementById('next-lesson-button');
+        const retryLessonButton = document.getElementById('retry-lesson-button');
+
+        let currentLessonIndex = 0;
+        let textToType = '';
+        let currentIndex = 0;
+        let errors = 0;
+        let startTime = null;
+        let timerInterval = null;
+        let lessonInProgress = false;
+        let audioCtx = null;
+
+        // --- Typing Sound ---
+        function initAudio() {
+            if (!audioCtx) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch(e) {
+                    console.error("Web Audio API is not supported in this browser");
+                }
+            }
+        }
+
+        function playKeystrokeSound() {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.type = 'triangle';
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); 
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.05);
+        }
+        
+        // --- Lessons Data ---
+        const lessons = [
+            // Home Row
+            { name: "Home Row: f j", keys: ['f', 'j'], length: 40, instruction: "ဘယ်လက်ညှိုးကို 'f' ပေါ်တင်ပြီး ညာလက်ညှိုးကို 'j' ပေါ်တင်ပါ။" },
+            { name: "Home Row: f j space", keys: ['f', 'j', ' '], length: 50, instruction: "Space bar ကို လက်မဖြင့် ရိုက်ပါ။" },
+            { name: "Home Row: d k", keys: ['d', 'k', 'f', 'j', ' '], length: 60, instruction: "ဘယ်လက်ခလယ်ကို 'd' ပေါ်၊ ညာလက်ခလယ်ကို 'k' ပေါ်တင်ပါ။" },
+            { name: "Home Row: s l", keys: ['s', 'l', 'd', 'k', 'f', 'j', ' '], length: 70, instruction: "ဘယ်လက်သူကြွယ်ကို 's' ပေါ်၊ ညာလက်သူကြွယ်ကို 'l' ပေါ်တင်ပါ။" },
+            { name: "Home Row: a ;", keys: ['a', ';', 's', 'l', 'd', 'k', 'f', 'j', ' '], length: 80, instruction: "ဘယ်လက်သန်းကို 'a' ပေါ်၊ ညာလက်သန်းကို ';' ပေါ်တင်ပါ။" },
+            { name: "Home Row: g h", keys: ['g', 'h', 'a', 's', 'd', 'f', 'j', 'k', 'l', ';', ' '], length: 90, instruction: "'g' ကို ဘယ်လက်ညှိုးဖြင့်၊ 'h' ကို ညာလက်ညှိုးဖြင့် ရိုက်ပါ။" },
+            { name: "Home Row: All", keys: 'asdfghjkl; '.split(''), length: 120, instruction: "Home row key အားလုံးကို လေ့ကျင့်ပါ။" },
+            // Top Row
+            { name: "Top Row: e i", keys: ['e', 'i', 'd', 'k', ' '], length: 60, instruction: "'e' ကို ဘယ်လက်ခလယ်ဖြင့်၊ 'i' ကို ညာလက်ခလယ်ဖြင့် ရိုက်ပါ။" },
+            { name: "Top Row: r u", keys: ['r', 'u', 'f', 'j', ' '], length: 60, instruction: "'r' ကို ဘယ်လက်ညှိုးဖြင့်၊ 'u' ကို ညာလက်ညှိုးဖြင့် ရိုက်ပါ။" },
+            { name: "Top Row: t y", keys: ['t', 'y', 'f', 'j', 'r', 'u', ' '], length: 80, instruction: "ဘယ်လက်ညှိုးကို 't' သို့၊ ညာလက်ညှိုးကို 'y' သို့ ဆန့်တန်းပြီးရိုက်ပါ။" },
+            { name: "Top Row: w o", keys: ['w', 'o', 's', 'l', ' '], length: 60, instruction: "'w' ကို ဘယ်လက်သူကြွယ်ဖြင့်၊ 'o' ကို ညာလက်သူကြွယ်ဖြင့် ရိုက်ပါ။" },
+            { name: "Top Row: q p", keys: ['q', 'p', 'a', ';', ' '], length: 60, instruction: "'q' ကို ဘယ်လက်သန်းဖြင့်၊ 'p' ကို ညာလက်သန်းဖြင့် ရိုက်ပါ။" },
+            { name: "Top Row: All", keys: 'qwertyuiop '.split(''), length: 120, instruction: "Top row key အားလုံးကို လေ့ကျင့်ပါ။" },
+            // Bottom Row
+            { name: "Bottom Row: c ,", keys: ['c', ',', 'd', 'k', ' '], length: 60, instruction: "'c' ကို ဘယ်လက်ခလယ်ဖြင့်၊ ',' ကို ညာလက်ခလယ်ဖြင့် ရိုက်ပါ။" },
+            { name: "Bottom Row: v m", keys: ['v', 'm', 'f', 'j', ' '], length: 60, instruction: "'v' ကို ဘယ်လက်ညှိုးဖြင့်၊ 'm' ကို ညာလက်ညှိုးဖြင့် ရိုက်ပါ။" },
+            { name: "Bottom Row: x .", keys: ['x', '.', 's', 'l', ' '], length: 60, instruction: "'x' ကို ဘယ်လက်သူကြွယ်ဖြင့်၊ '.' ကို ညာလက်သူကြွယ်ဖြင့် ရိုက်ပါ။" },
+            { name: "Bottom Row: z /", keys: ['z', '/', 'a', ';', ' '], length: 60, instruction: "'z' ကို ဘယ်လက်သန်းဖြင့်၊ '/' ကို ညာလက်သန်းဖြင့် ရိုက်ပါ။" },
+            { name: "Bottom Row: b n", keys: ['b', 'n', 'f', 'j', 'v', 'm', ' '], length: 80, instruction: "'b' ကို ဘယ်လက်ညှိုးဖြင့်၊ 'n' ကို ညာလက်ညှိုးဖြင့် ရိုက်ပါ။" },
+            { name: "Bottom Row: All", keys: 'zxcvbnm,./ '.split(''), length: 120, instruction: "Bottom row key အားလုံးကို လေ့ကျင့်ပါ။" },
+            // Combined Rows
+            { name: "Home & Top Rows", keys: 'asdfghjkl;qwertyuiop '.split(''), length: 150, instruction: "Home row နှင့် Top row များကို ပေါင်းစပ်လေ့ကျင့်ပါ။" },
+            { name: "All Rows", keys: 'abcdefghijklmnopqrstuvwxyz '.split(''), length: 180, instruction: "Key အားလုံးကို လေ့ကျင့်ပါ။ စကားလုံးတိုလေးများ ပါဝင်ပါမည်။" },
+            // Simple Words
+            { name: "Simple Words 1", text: "ask a lad a sad fall; all ask; a lass a sad lad; a fall; ask all lads;", instruction: "စကားလုံး အတိုလေးများကို စတင်လေ့ကျင့်ပါ။" },
+            { name: "Simple Words 2", text: "the she see let tell lake her there here where tree feel free", instruction: "စကားလုံးများကို ဆက်လက်လေ့ကျင့်ပါ။" },
+            { name: "Full Alphabet", text: "the quick brown fox jumps over the lazy dog", instruction: "အင်္ဂလိပ် အက္ခရာအားလုံးပါဝင်သော ဝါကျကို လေ့ကျင့်ပါ။" }
+        ];
+
+        const charToCode = {
+            '`': 'Backquote', '1': 'Digit1', '2': 'Digit2', '3': 'Digit3', '4': 'Digit4', '5': 'Digit5', '6': 'Digit6', '7': 'Digit7', '8': 'Digit8', '9': 'Digit9', '0': 'Digit0', '-': 'Minus', '=': 'Equal',
+            'q': 'KeyQ', 'w': 'KeyW', 'e': 'KeyE', 'r': 'KeyR', 't': 'KeyT', 'y': 'KeyY', 'u': 'KeyU', 'i': 'KeyI', 'o': 'KeyO', 'p': 'KeyP', '[': 'BracketLeft', ']': 'BracketRight', '\\': 'Backslash',
+            'a': 'KeyA', 's': 'KeyS', 'd': 'KeyD', 'f': 'KeyF', 'g': 'KeyG', 'h': 'KeyH', 'j': 'KeyJ', 'k': 'KeyK', 'l': 'KeyL', ';': 'Semicolon', "'": 'Quote',
+            'z': 'KeyZ', 'x': 'KeyX', 'c': 'KeyC', 'v': 'KeyV', 'b': 'KeyB', 'n': 'KeyN', 'm': 'KeyM', ',': 'Comma', '.': 'Period', '/': 'Slash',
+            ' ': 'Space'
+        };
+
+        const keyToFinger = {
+            'Backquote': 'left-pinky', 'Digit1': 'left-pinky', 'KeyQ': 'left-pinky', 'KeyA': 'left-pinky', 'KeyZ': 'left-pinky',
+            'Digit2': 'left-ring', 'KeyW': 'left-ring', 'KeyS': 'left-ring', 'KeyX': 'left-ring',
+            'Digit3': 'left-middle', 'KeyE': 'left-middle', 'KeyD': 'left-middle', 'KeyC': 'left-middle',
+            'Digit4': 'left-index', 'KeyR': 'left-index', 'KeyF': 'left-index', 'KeyV': 'left-index', 'Digit5': 'left-index', 'KeyT': 'left-index', 'KeyG': 'left-index', 'KeyB': 'left-index',
+            'Space': 'left-thumb',
+            'Digit7': 'right-index', 'KeyU': 'right-index', 'KeyJ': 'right-index', 'KeyN': 'right-index', 'Digit6': 'right-index', 'KeyY': 'right-index', 'KeyH': 'right-index', 'KeyM': 'right-index',
+            'Digit8': 'right-middle', 'KeyI': 'right-middle', 'KeyK': 'right-middle', 'Comma': 'right-middle',
+            'Digit9': 'right-ring', 'KeyO': 'right-ring', 'KeyL': 'right-ring', 'Period': 'right-ring',
+            'Digit0': 'right-pinky', 'KeyP': 'right-pinky', 'Semicolon': 'right-pinky', 'Slash': 'right-pinky', 'Minus': 'right-pinky', 'Equal': 'right-pinky', 'BracketLeft': 'right-pinky', 'BracketRight': 'right-pinky', 'Backslash': 'right-pinky', 'Quote': 'right-pinky'
+        };
+
+        function populateLessons() {
+            lessons.forEach((lesson, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `${index + 1}. ${lesson.name}`;
+                lessonSelect.appendChild(option);
+            });
+        }
+        
+        function generateTextForLesson(lesson) {
+            if (lesson.text) {
+                return lesson.text;
+            }
+            
+            let text = '';
+            let word = '';
+            for (let i = 0; i < lesson.length; i++) {
+                const key = lesson.keys[Math.floor(Math.random() * lesson.keys.length)];
+                
+                if (key === ' ') {
+                    if (word.length > 0) {
+                        text += word + ' ';
+                        word = '';
+                    }
+                } else {
+                    word += key;
+                    if (word.length > Math.floor(Math.random() * 5) + 3) {
+                         text += word + ' ';
+                         word = '';
+                    }
+                }
+            }
+            if (word.length > 0) {
+                text += word;
+            }
+            return text.trim();
+        }
+
+        function startLesson(index) {
+            currentLessonIndex = parseInt(index);
+            const lesson = lessons[currentLessonIndex];
+            
+            textToType = generateTextForLesson(lesson);
+            lessonInstructionEl.textContent = lesson.instruction;
+            
+            textDisplayContainer.innerHTML = '';
+            textToType.split('').forEach(char => {
+                const charSpan = document.createElement('span');
+                charSpan.textContent = char;
+                textDisplayContainer.appendChild(charSpan);
+            });
+            
+            resetState();
+            updateHighlight();
+        }
+
+        function resetState() {
+            lessonInProgress = false;
+            currentIndex = 0;
+            errors = 0;
+            startTime = null;
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = null;
+
+            wpmEl.textContent = '0';
+            accuracyEl.textContent = '100%';
+            errorsEl.textContent = '0';
+            timerEl.textContent = '0s';
+            
+            document.querySelectorAll('#text-display-container span').forEach(span => {
+                span.classList.remove('correct', 'incorrect', 'current');
+            });
+            resultModal.classList.add('hidden');
+            resultModal.classList.remove('flex');
+        }
+
+        function updateHighlight() {
+            document.querySelectorAll('#text-display-container span').forEach((span, index) => {
+                span.classList.toggle('current', index === currentIndex);
+            });
+            updateKeyboardAndFinger();
+        }
+        
+        function updateKeyboardAndFinger() {
+            document.querySelectorAll('.key-active').forEach(k => k.classList.remove('key-active'));
+            document.querySelectorAll('.finger-active').forEach(f => f.classList.remove('finger-active'));
+            
+            if (currentIndex >= textToType.length) return;
+            
+            const char = textToType[currentIndex].toLowerCase();
+            const code = charToCode[char];
+            const keyEl = document.querySelector(`.key[data-key="${code}"]`);
+            if (keyEl) {
+                keyEl.classList.add('key-active');
+            }
+            
+            const finger = keyToFinger[code];
+            if (finger) {
+                const fingerEl = document.querySelector(`.finger[data-finger="${finger}"]`);
+                if(fingerEl) fingerEl.classList.add('finger-active');
+            }
+        }
+        
+        function updateStats() {
+            if (!startTime) return;
+            const elapsedTime = (new Date() - startTime) / 1000;
+            timerEl.textContent = `${Math.floor(elapsedTime)}s`;
+            
+            if (elapsedTime > 0.5 && currentIndex > 0) {
+                const minutes = elapsedTime / 60;
+                const wordsTyped = (currentIndex / 5);
+                const wpm = Math.round(wordsTyped / minutes);
+                wpmEl.textContent = wpm;
+                
+                const accuracy = Math.round(((currentIndex - errors) / currentIndex) * 100);
+                accuracyEl.textContent = `${Math.max(0, accuracy)}%`;
+            }
+            errorsEl.textContent = errors;
+        }
+        
+        function showResults() {
+             if (timerInterval) clearInterval(timerInterval);
+             lessonInProgress = false;
+             
+             const finalWPM = wpmEl.textContent;
+             const finalAccuracy = accuracyEl.textContent;
+             const finalErrors = errorsEl.textContent;
+             const finalTime = timerEl.textContent;
+
+             modalStats.innerHTML = `
+                <p><strong>WPM:</strong> <span class="font-bold text-blue-600">${finalWPM}</span></p>
+                <p><strong>တိကျမှု:</strong> <span class="font-bold text-green-600">${finalAccuracy}</span></p>
+                <p><strong>အမှား:</strong> <span class="font-bold text-red-600">${finalErrors}</span></p>
+                <p><strong>အချိန်:</strong> <span class="font-bold text-slate-700">${finalTime}</span></p>
+             `;
+             
+             nextLessonButton.disabled = currentLessonIndex >= lessons.length - 1;
+
+             resultModal.classList.remove('hidden');
+             resultModal.classList.add('flex');
+        }
+        
+        function handleKeydown(e) {
+            e.preventDefault(); 
+            
+            // Visual feedback for any key pressed
+            const keyEl = document.querySelector(`.key[data-key="${e.code}"]`);
+            if (keyEl) {
+                keyEl.classList.add('key-pressed');
+                setTimeout(() => {
+                    keyEl.classList.remove('key-pressed');
+                }, 100);
+            }
+
+            if (!audioCtx) {
+                initAudio();
+            }
+            playKeystrokeSound();
+
+            if(currentIndex >= textToType.length) {
+                return;
+            }
+
+            if (!lessonInProgress) {
+                lessonInProgress = true;
+                startTime = new Date();
+                timerInterval = setInterval(updateStats, 1000);
+            }
+
+            const pressedKey = e.key;
+            const expectedKey = textToType[currentIndex];
+            const currentSpan = textDisplayContainer.children[currentIndex];
+            
+            if (pressedKey.length === 1 || pressedKey === 'Enter') {
+                 if ( (pressedKey === 'Enter' && expectedKey === '\n') || (pressedKey === expectedKey) ) {
+                    currentSpan.classList.add('correct');
+                    currentSpan.classList.remove('incorrect');
+                    currentIndex++;
+                } else if (pressedKey.length === 1) { // Only count character keys as errors
+                    currentSpan.classList.add('incorrect');
+                    currentSpan.classList.remove('correct');
+                    errors++;
+                    currentIndex++;
+                }
+
+                if (currentIndex >= textToType.length) {
+                    showResults();
+                } else {
+                    updateHighlight();
+                }
+                updateStats();
+            }
+        }
+
+        // --- Event Listeners ---
+        lessonSelect.addEventListener('change', (e) => startLesson(e.target.value));
+        resetButton.addEventListener('click', () => startLesson(currentLessonIndex));
+        document.addEventListener('keydown', handleKeydown);
+        
+        retryLessonButton.addEventListener('click', () => {
+            resultModal.classList.add('hidden');
+            resultModal.classList.remove('flex');
+            startLesson(currentLessonIndex);
+        });
+        
+        nextLessonButton.addEventListener('click', () => {
+             if (currentLessonIndex < lessons.length - 1) {
+                currentLessonIndex++;
+                lessonSelect.value = currentLessonIndex;
+                resultModal.classList.add('hidden');
+                resultModal.classList.remove('flex');
+                startLesson(currentLessonIndex);
+             }
+        });
+
+        // --- Initial setup ---
+        populateLessons();
+        startLesson(0);
+    });
+</script>
+
+</body>
+</html>
+
